@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.schemas import UserOut, UserAuth, TokenSchema
 from fastapi.security import OAuth2PasswordRequestForm
 from app.utils import decode_access_token  # add to existing import line
+from fastapi import Depends
+from app.utils import oauth2_scheme, decode_access_token
 from app.utils import (
     get_hashed_password,
     create_access_token,
