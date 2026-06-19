@@ -4,61 +4,70 @@ import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import API_URL from "../config";
 
-
-// ✅ Create Context
+// Create Context
 export const ShopContext = createContext();
 
 const ShopContextProvider = (props) => {
   const currency = "$";
   const delivery_fee = 10;
 
-  const [search, setSearch] = useState("");
-  const [cartItems, setCartItems] = useState({});
   const navigate = useNavigate();
-  
-  // ✅ NEW: Authentication state
-  const [token, setToken] = useState("");
 
-  // ✅ NEW: Initialize token from localStorage on mount
+  // Search
+  const [search, setSearch] = useState("");
+
+  // Cart
+  const [cartItems, setCartItems] = useState({});
+
+  // Authentication
+  const [token, setToken] = useState(
+    localStorage.getItem("access_token") || ""
+  );
+
+  const [user, setUser] = useState(null);
+
+  // Fetch current user whenever token changes
   useEffect(() => {
-    const storedToken = localStorage.getItem("token");
-    if (storedToken) {
-      setToken(storedToken);
+    if (!token) {
+      setUser(null);
+      return;
     }
-  }, []);
 
-  // ✅ NEW: Save token to localStorage whenever it changes
-  const [token, setToken] = useState(localStorage.getItem("access_token") || ""); // ← fixed key
-const [user, setUser] = useState(null);
-
-// Fetch user info whenever token is available
-useEffect(() => {
-  if (token) {
     fetch(`${API_URL}/me`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     })
       .then((res) => {
         if (!res.ok) throw new Error("Invalid token");
         return res.json();
       })
-      .then((data) => setUser(data))
-      .catch(() => {
-        // Token invalid/expired → clear it
+      .then((data) => {
+        setUser(data);
+      })
+      .catch((err) => {
+        console.error(err);
+
         localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+
         setToken("");
         setUser(null);
       });
-  }
-}, [token]);
+  }, [token]);
 
-const logout = () => {
-  localStorage.removeItem("access_token");
-  localStorage.removeItem("refresh_token");
-  setToken("");
-  setUser(null);
-};
+  // Logout
+  const logout = () => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
 
-  // ✅ Add to Cart Function
+    setToken("");
+    setUser(null);
+
+    toast.success("Logged out successfully");
+  };
+
+  // Add To Cart
   const addToCart = (itemId, size) => {
     if (!size) {
       toast.error("Select Product Size");
@@ -82,7 +91,7 @@ const logout = () => {
     toast.success("Item added to cart");
   };
 
-  // ✅ Get Total Cart Count
+  // Cart Count
   const getCartCount = () => {
     let totalCount = 0;
 
@@ -95,35 +104,36 @@ const logout = () => {
     return totalCount;
   };
 
-  // ✅ Update cart item quantity
+  // Update Quantity
   const updateQuantity = (itemId, size, quantity) => {
     let cartData = structuredClone(cartItems);
-    
+
     if (quantity <= 0) {
       delete cartData[itemId][size];
-      // If no sizes left for this item, remove the item completely
+
       if (Object.keys(cartData[itemId]).length === 0) {
         delete cartData[itemId];
       }
     } else {
       cartData[itemId][size] = quantity;
     }
-    
+
     setCartItems(cartData);
   };
 
-  // ✅ Get Total Cart Amount
+  // Total Amount
   const getTotalCartAmount = () => {
     let totalAmount = 0;
 
     for (const itemId in cartItems) {
-      const itemInfo = products.find((product) => product._id === itemId);
-      
+      const itemInfo = products.find(
+        (product) => product._id === itemId
+      );
+
       if (itemInfo) {
         for (const size in cartItems[itemId]) {
-          if (cartItems[itemId][size] > 0) {
-            totalAmount += itemInfo.price * cartItems[itemId][size];
-          }
+          totalAmount +=
+            itemInfo.price * cartItems[itemId][size];
         }
       }
     }
@@ -131,25 +141,30 @@ const logout = () => {
     return totalAmount;
   };
 
-  // ✅ Context value
+  // Context Value
   const value = {
-    user,
-    logout,
     products,
     currency,
     delivery_fee,
+
     search,
     setSearch,
+
     cartItems,
     addToCart,
-    getCartCount,
     updateQuantity,
+
+    getCartCount,
     getTotalCartAmount,
-    //place order
+
     navigate,
-    // ✅ NEW: Add authentication values
+
+    // Auth
     token,
-    setToken
+    setToken,
+    user,
+    setUser,
+    logout,
   };
 
   return (
