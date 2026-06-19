@@ -15,7 +15,7 @@ import SearchBar from './components/SearchBar'
 import Men from './pages/men'
 import Women from './pages/women'
 import Kid from  './pages/kid'
-import Profile from "./pages/Profile";
+import Profile from "./pages/profile";
   import { ToastContainer, toast } from 'react-toastify';
 
 const App = () => {
