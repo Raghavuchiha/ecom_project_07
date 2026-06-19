@@ -14,6 +14,7 @@ SECRET_KEY = os.getenv('JWT_SECRET_KEY')   # should be kept secret
 REFRESH_SECRET_KEY = os.getenv('JWT_REFRESH_SECRET_KEY')   # should be kept secret
 
 password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 def get_hashed_password(password: str)->str:
     """Takes a plain password and returns the hash for it so that
