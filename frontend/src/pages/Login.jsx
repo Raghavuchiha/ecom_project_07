@@ -2,9 +2,13 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import API_URL from "../config";
+import { useContext } from "react";
+import { ShopContext } from "../context/ShopContext";
+
 
 const Login = () => {
   const navigate = useNavigate();
+  const { setToken } = useContext(ShopContext);
 
   const [currentState, setCurrentState] = useState("Login");
 
@@ -40,6 +44,7 @@ const Login = () => {
 
         localStorage.setItem("access_token", response.data.access_token);
         localStorage.setItem("refresh_token", response.data.refresh_token);
+        setToken(response.data.access_token);
 
         navigate("/");
       }
