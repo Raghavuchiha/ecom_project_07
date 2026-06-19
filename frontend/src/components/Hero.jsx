@@ -16,8 +16,8 @@ const Hero = () => {
       tag: "NEVER SEEN BEFORE",
     },
     {
-      leftImg: "/src/assets/p_img0.2",
-      rightImg: "/src/assets/0.1img",
+      leftImg: "/src/assets/pp_img0",
+      rightImg: "/src/assets/pp_img0",
       title: "SOLAR PRINT",
       subtitle: "LIMITED EDITION",
       tag: "NEW DROP",
