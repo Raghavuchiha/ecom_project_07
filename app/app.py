@@ -109,3 +109,16 @@ async def get_users():
     )
 
     return result.data
+
+
+@app.get("/me", response_model=UserOut)
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    email = decode_access_token(token)
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    
+    result = supabase.table("users").select("id, username, email").eq("email", email).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return result.data[0]
