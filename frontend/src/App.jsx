@@ -15,6 +15,7 @@ import SearchBar from './components/SearchBar'
 import Men from './pages/men'
 import Women from './pages/women'
 import Kid from  './pages/kid'
+import Profile from "./pages/Profile";
   import { ToastContainer, toast } from 'react-toastify';
 
 const App = () => {
@@ -35,6 +36,10 @@ const App = () => {
          <Route path = '/Login' element={<Login/>} />
          <Route path = '/place-order' element={<PlaceOrder/>} />
          <Route path = '/Orders' element={<Orders/>} />
+         <Route path="/profile" element={<Profile />} />
+     
+
+
 
      </Routes>
      <Footer/>
