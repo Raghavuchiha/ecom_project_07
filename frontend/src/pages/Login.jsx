@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import API_URL from "../config";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -15,7 +16,7 @@ const Login = () => {
     try {
       if (currentState === "Sign Up") {
         const response = await axios.post(
-          "http://127.0.0.1:8000/signup",
+          `${API_URL}/signup`,
           {
             username: name,
             email: email,
@@ -24,40 +25,27 @@ const Login = () => {
         );
 
         console.log("Signup Success:", response.data);
-
         navigate("/");
       } else {
         const formData = new FormData();
-
         formData.append("username", email);
         formData.append("password", password);
 
         const response = await axios.post(
-          "http://127.0.0.1:8000/login",
+          `${API_URL}/login`,
           formData
         );
 
         console.log("Login Success:", response.data);
 
-        localStorage.setItem(
-          "access_token",
-          response.data.access_token
-        );
-
-        localStorage.setItem(
-          "refresh_token",
-          response.data.refresh_token
-        );
+        localStorage.setItem("access_token", response.data.access_token);
+        localStorage.setItem("refresh_token", response.data.refresh_token);
 
         navigate("/");
       }
     } catch (error) {
       console.error(error);
-
-      alert(
-        error.response?.data?.detail ||
-          "Something went wrong"
-      );
+      alert(error.response?.data?.detail || "Something went wrong");
     }
   };
 
