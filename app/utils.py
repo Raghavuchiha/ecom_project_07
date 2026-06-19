@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timedelta
 from typing import Union, Any
 from jose import jwt
+from fastapi.security import OAuth2PasswordBearer
 from dotenv import load_dotenv
 
 load_dotenv()
