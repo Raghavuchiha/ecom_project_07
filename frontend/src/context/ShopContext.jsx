@@ -2,6 +2,7 @@ import { createContext, useState, useEffect } from "react";
 import { products } from "../assets/assets";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
+import API_URL from "../config";
 
 
 // ✅ Create Context
@@ -27,13 +28,35 @@ const ShopContextProvider = (props) => {
   }, []);
 
   // ✅ NEW: Save token to localStorage whenever it changes
-  useEffect(() => {
-    if (token) {
-      localStorage.setItem("token", token);
-    } else {
-      localStorage.removeItem("token");
-    }
-  }, [token]);
+  const [token, setToken] = useState(localStorage.getItem("access_token") || ""); // ← fixed key
+const [user, setUser] = useState(null);
+
+// Fetch user info whenever token is available
+useEffect(() => {
+  if (token) {
+    fetch(`${API_URL}/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Invalid token");
+        return res.json();
+      })
+      .then((data) => setUser(data))
+      .catch(() => {
+        // Token invalid/expired → clear it
+        localStorage.removeItem("access_token");
+        setToken("");
+        setUser(null);
+      });
+  }
+}, [token]);
+
+const logout = () => {
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
+  setToken("");
+  setUser(null);
+};
 
   // ✅ Add to Cart Function
   const addToCart = (itemId, size) => {
@@ -110,6 +133,8 @@ const ShopContextProvider = (props) => {
 
   // ✅ Context value
   const value = {
+    user,
+    logout,
     products,
     currency,
     delivery_fee,
