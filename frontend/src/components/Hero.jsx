@@ -2,6 +2,7 @@ import React from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation, Pagination, Autoplay } from "swiper/modules";
 import pp_img0 from "../assets/pp_img0.png";
+import p_img0_4 from "../assets/p_img0_4.webp";
 
 import "swiper/css";
 import "swiper/css/navigation";
@@ -10,8 +11,8 @@ import "swiper/css/pagination";
 const Hero = () => {
   const slides = [
     {
-      leftImg: "/src/assets/p_img0.3",
-      rightImg: "/src/assets/p_img0.4.webp",
+      leftImg: p_img0_4,
+      rightImg: p_img0_4,
       title: "HARRY POTTER",
       subtitle: "THE MARAUDER'S MAP",
       tag: "NEVER SEEN BEFORE",
