@@ -22,7 +22,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-         "https://ecom-project-07.vercel.app"
+         "https://ecom-project-07.vercel.app",
+         "yokaiecom.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
