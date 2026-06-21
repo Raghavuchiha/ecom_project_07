@@ -1,6 +1,7 @@
 import React from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation, Pagination, Autoplay } from "swiper/modules";
+import pp_img0 from "../assets/pp_img0.png";
 
 import "swiper/css";
 import "swiper/css/navigation";
@@ -16,8 +17,8 @@ const Hero = () => {
       tag: "NEVER SEEN BEFORE",
     },
     {
-      leftImg: "frontend/src/assets/pp_img0.png",
-      rightImg: "/src/assets/pp_img0.png",
+        leftImg: pp_img0,
+        rightImg: pp_img0,
       title: "SOLAR PRINT",
       subtitle: "LIMITED EDITION",
       tag: "NEW DROP",
