@@ -1,29 +1,27 @@
 from fastapi import FastAPI, status, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from app.schemas import UserOut, UserAuth, TokenSchema
 from fastapi.security import OAuth2PasswordRequestForm
-from app.utils import decode_access_token  # add to existing import line
-from fastapi import Depends
-from app.utils import oauth2_scheme, decode_access_token
+from app.schemas import UserOut, UserAuth, TokenSchema
 from app.utils import (
     get_hashed_password,
     create_access_token,
     create_refresh_token,
-    verify_password
+    verify_password,
+    decode_access_token,
+    oauth2_scheme
 )
 from app.database import supabase
 from uuid import uuid4
 
 app = FastAPI()
 
-# CORS for React frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-         "https://ecom-project-07.vercel.app",
-         "https://yokaiecom.vercel.app"
+        "https://ecom-project-07.vercel.app",
+        "https://yokaiecom.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -33,13 +31,7 @@ app.add_middleware(
 
 @app.post('/signup', summary="Create new user", response_model=UserOut)
 async def create_user(data: UserAuth):
-
-    existing_user = (
-        supabase.table("users")
-        .select("*")
-        .eq("email", data.email)
-        .execute()
-    )
+    existing_user = supabase.table("users").select("*").eq("email", data.email).execute()
 
     if existing_user.data:
         raise HTTPException(
@@ -56,43 +48,23 @@ async def create_user(data: UserAuth):
 
     supabase.table("users").insert(user).execute()
 
-    return UserOut(
-        id=user["id"],
-        email=user["email"],
-        username=user["username"]
-    )
+    # auto-create empty profile row for this user
+    supabase.table("profiles").insert({"user_id": user["id"]}).execute()
+
+    return UserOut(id=user["id"], email=user["email"], username=user["username"])
 
 
-@app.post(
-    '/login',
-    summary="Create access and refresh tokens for user",
-    response_model=TokenSchema
-)
+@app.post('/login', summary="Create access and refresh tokens for user", response_model=TokenSchema)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-
-    result = (
-        supabase.table("users")
-        .select("*")
-        .eq("email", form_data.username)
-        .execute()
-    )
+    result = supabase.table("users").select("*").eq("email", form_data.username).execute()
 
     if not result.data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User not found!"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User not found!")
 
     user = result.data[0]
 
-    if not verify_password(
-        form_data.password,
-        user["password"]
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Incorrect email or password"
-        )
+    if not verify_password(form_data.password, user["password"]):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect email or password")
 
     return {
         "access_token": create_access_token(user["email"]),
@@ -102,13 +74,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
 @app.get("/users", response_model=list[UserOut])
 async def get_users():
-
-    result = (
-        supabase.table("users")
-        .select("id, username, email")
-        .execute()
-    )
-
+    result = supabase.table("users").select("id, username, email").execute()
     return result.data
 
 
@@ -117,9 +83,56 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     email = decode_access_token(token)
     if not email:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
-    
+
     result = supabase.table("users").select("id, username, email").eq("email", email).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
+    return result.data[0]
+
+
+@app.get("/profile")
+async def get_profile(token: str = Depends(oauth2_scheme)):
+    email = decode_access_token(token)
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_result = supabase.table("users").select("id").eq("email", email).execute()
+    if not user_result.data:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user_id = user_result.data[0]["id"]
+
+    profile_result = supabase.table("profiles").select("*").eq("user_id", user_id).execute()
+
+    if not profile_result.data:
+        return {
+            "user_id": user_id,
+            "full_name": None,
+            "phone": None,
+            "date_of_birth": None,
+            "gender": None,
+            "avatar_url": None
+        }
+
+    return profile_result.data[0]
+
+
+@app.patch("/profile")
+async def update_profile(data: dict, token: str = Depends(oauth2_scheme)):
+    email = decode_access_token(token)
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_result = supabase.table("users").select("id").eq("email", email).execute()
+    if not user_result.data:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user_id = user_result.data[0]["id"]
+
+    result = supabase.table("profiles").upsert({
+        "user_id": user_id,
+        **data
+    }).execute()
+
     return result.data[0]
