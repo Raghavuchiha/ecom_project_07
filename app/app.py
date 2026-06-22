@@ -137,5 +137,7 @@ async def update_profile(data: dict, token: str = Depends(oauth2_scheme)):
     ).execute()
 
     return result.data[0]
-
-    return result.data[0]
+@app.get("/products")
+async def get_products():
+    result = supabase.table("products").select("*").execute()
+    return result.data
