@@ -131,9 +131,11 @@ async def update_profile(data: dict, token: str = Depends(oauth2_scheme)):
 
     user_id = user_result.data[0]["id"]
 
-    result = supabase.table("profiles").upsert({
-        "user_id": user_id,
-        **data
-    }).execute()
+    result = supabase.table("profiles").upsert(
+        {"user_id": user_id, **data},
+        on_conflict="user_id"
+    ).execute()
+
+    return result.data[0]
 
     return result.data[0]
