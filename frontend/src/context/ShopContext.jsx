@@ -1,5 +1,4 @@
 import { createContext, useState, useEffect } from "react";
-import { products } from "../assets/assets";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import API_URL from "../config";
@@ -19,12 +18,38 @@ const ShopContextProvider = (props) => {
   // Cart
   const [cartItems, setCartItems] = useState({});
 
+  // Products (Fetched from Backend)
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   // Authentication
   const [token, setToken] = useState(
     localStorage.getItem("access_token") || ""
   );
 
   const [user, setUser] = useState(null);
+
+  // Fetch Products
+  useEffect(() => {
+    fetch(`${API_URL}/products`)
+      .then((res) => res.json())
+      .then((data) => {
+        const normalized = data.map((p) => ({
+          ...p,
+          _id: String(p.id),
+          image: [p.image_url],
+          subCategory: p.sub_category,
+        }));
+
+        setProducts(normalized);
+      })
+      .catch((err) => {
+        console.error("Failed to load products:", err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
 
   // Fetch current user whenever token changes
   useEffect(() => {
@@ -127,13 +152,12 @@ const ShopContextProvider = (props) => {
 
     for (const itemId in cartItems) {
       const itemInfo = products.find(
-        (product) => product._id === itemId
+        (product) => String(product._id) === String(itemId)
       );
 
       if (itemInfo) {
         for (const size in cartItems[itemId]) {
-          totalAmount +=
-            itemInfo.price * cartItems[itemId][size];
+          totalAmount += itemInfo.price * cartItems[itemId][size];
         }
       }
     }
@@ -144,6 +168,8 @@ const ShopContextProvider = (props) => {
   // Context Value
   const value = {
     products,
+    loading,
+
     currency,
     delivery_fee,
 
