@@ -3,139 +3,131 @@ import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import API_URL from "../config";
 
-// Create Context
 export const ShopContext = createContext();
 
 const ShopContextProvider = (props) => {
   const currency = "$";
   const delivery_fee = 10;
 
+  const [search, setSearch] = useState("");
+  const [products, setProducts] = useState([]);
+  const [cartItems, setCartItems] = useState({});
+  const [token, setToken] = useState(localStorage.getItem("access_token") || "");
+  const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
-  // Search
-  const [search, setSearch] = useState("");
-
-  // Cart
-  const [cartItems, setCartItems] = useState({});
-
-  // Products (Fetched from Backend)
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // Authentication
-  const [token, setToken] = useState(
-    localStorage.getItem("access_token") || ""
-  );
-
-  const [user, setUser] = useState(null);
-
-  // Fetch Products
+  // fetch products from backend
   useEffect(() => {
     fetch(`${API_URL}/products`)
       .then((res) => res.json())
       .then((data) => {
         const normalized = data.map((p) => ({
           ...p,
-          _id: String(p.id),
+          _id: p.id,
           image: [p.image_url],
           subCategory: p.sub_category,
         }));
-
         setProducts(normalized);
       })
-      .catch((err) => {
-        console.error("Failed to load products:", err);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+      .catch((err) => console.error("Failed to load products", err));
   }, []);
 
-  // Fetch current user whenever token changes
+  // fetch user when token changes
   useEffect(() => {
-    if (!token) {
-      setUser(null);
-      return;
+    if (token) {
+      fetch(`${API_URL}/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error("Invalid token");
+          return res.json();
+        })
+        .then((data) => setUser(data))
+        .catch(() => {
+          localStorage.removeItem("access_token");
+          setToken("");
+          setUser(null);
+        });
     }
-
-    fetch(`${API_URL}/me`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Invalid token");
-        return res.json();
-      })
-      .then((data) => {
-        setUser(data);
-      })
-      .catch((err) => {
-        console.error(err);
-
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
-
-        setToken("");
-        setUser(null);
-      });
   }, [token]);
 
-  // Logout
+  // fetch cart from backend when user is loaded
+  useEffect(() => {
+    if (token && user) {
+      fetch(`${API_URL}/cart`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          // convert flat DB rows → nested {productId: {size: qty}} format
+          const cartData = {};
+          data.forEach((item) => {
+            if (!cartData[item.product_id]) cartData[item.product_id] = {};
+            cartData[item.product_id][item.size] = item.quantity;
+          });
+          setCartItems(cartData);
+        })
+        .catch((err) => console.error("Failed to load cart", err));
+    }
+  }, [user]);
+
   const logout = () => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
-
     setToken("");
     setUser(null);
-
-    toast.success("Logged out successfully");
+    setCartItems({});
   };
 
-  // Add To Cart
-  const addToCart = (itemId, size) => {
+  // add to cart — calls backend if logged in
+  const addToCart = async (itemId, size) => {
     if (!size) {
       toast.error("Select Product Size");
       return;
     }
 
+    // update local state immediately (optimistic update)
     let cartData = structuredClone(cartItems);
-
     if (cartData[itemId]) {
-      if (cartData[itemId][size]) {
-        cartData[itemId][size] += 1;
-      } else {
-        cartData[itemId][size] = 1;
-      }
+      cartData[itemId][size] = (cartData[itemId][size] || 0) + 1;
     } else {
-      cartData[itemId] = {};
-      cartData[itemId][size] = 1;
+      cartData[itemId] = { [size]: 1 };
     }
-
     setCartItems(cartData);
     toast.success("Item added to cart");
+
+    // sync to backend if logged in
+    if (token) {
+      try {
+        await fetch(`${API_URL}/cart`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ product_id: itemId, size, quantity: 1 }),
+        });
+      } catch (err) {
+        console.error("Failed to sync cart", err);
+      }
+    }
   };
 
-  // Cart Count
   const getCartCount = () => {
     let totalCount = 0;
-
     for (const itemId in cartItems) {
       for (const size in cartItems[itemId]) {
         totalCount += cartItems[itemId][size];
       }
     }
-
     return totalCount;
   };
 
-  // Update Quantity
-  const updateQuantity = (itemId, size, quantity) => {
+  const updateQuantity = async (itemId, size, quantity) => {
     let cartData = structuredClone(cartItems);
 
     if (quantity <= 0) {
       delete cartData[itemId][size];
-
       if (Object.keys(cartData[itemId]).length === 0) {
         delete cartData[itemId];
       }
@@ -144,52 +136,80 @@ const ShopContextProvider = (props) => {
     }
 
     setCartItems(cartData);
+
+    // sync to backend
+    if (token) {
+      try {
+        if (quantity <= 0) {
+          // find cart item id from backend and delete
+          const res = await fetch(`${API_URL}/cart`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const items = await res.json();
+          const found = items.find(
+            (i) => i.product_id === itemId && i.size === size
+          );
+          if (found) {
+            await fetch(`${API_URL}/cart/${found.id}`, {
+              method: "DELETE",
+              headers: { Authorization: `Bearer ${token}` },
+            });
+          }
+        } else {
+          const res = await fetch(`${API_URL}/cart`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const items = await res.json();
+          const found = items.find(
+            (i) => i.product_id === itemId && i.size === size
+          );
+          if (found) {
+            await fetch(`${API_URL}/cart/${found.id}`, {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ quantity }),
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Failed to sync cart update", err);
+      }
+    }
   };
 
-  // Total Amount
   const getTotalCartAmount = () => {
     let totalAmount = 0;
-
     for (const itemId in cartItems) {
-      const itemInfo = products.find(
-        (product) => String(product._id) === String(itemId)
-      );
-
+      const itemInfo = products.find((p) => p._id === itemId);
       if (itemInfo) {
         for (const size in cartItems[itemId]) {
-          totalAmount += itemInfo.price * cartItems[itemId][size];
+          if (cartItems[itemId][size] > 0) {
+            totalAmount += itemInfo.price * cartItems[itemId][size];
+          }
         }
       }
     }
-
     return totalAmount;
   };
 
-  // Context Value
   const value = {
     products,
-    loading,
-
     currency,
     delivery_fee,
-
     search,
     setSearch,
-
     cartItems,
     addToCart,
-    updateQuantity,
-
     getCartCount,
+    updateQuantity,
     getTotalCartAmount,
-
     navigate,
-
-    // Auth
     token,
     setToken,
     user,
-    setUser,
     logout,
   };
 
