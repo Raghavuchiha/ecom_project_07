@@ -29,7 +29,7 @@ const Login = () => {
         );
 
         console.log("Signup Success:", response.data);
-        navigate("/");
+        navigate("/login");
       } else {
         const formData = new FormData();
         formData.append("username", email);
