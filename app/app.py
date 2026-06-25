@@ -1,7 +1,7 @@
 from fastapi import FastAPI, status, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
-from app.schemas import UserOut, UserAuth, TokenSchema
+from app.schemas import UserOut, UserAuth, TokenSchema , CartItemIn
 from app.utils import (
     get_hashed_password,
     create_access_token,
@@ -141,3 +141,81 @@ async def update_profile(data: dict, token: str = Depends(oauth2_scheme)):
 async def get_products():
     result = supabase.table("products").select("*").execute()
     return result.data
+
+@app.get("/cart")
+async def get_cart(token: str = Depends(oauth2_scheme)):
+    email = decode_access_token(token)
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_result = supabase.table("users").select("id").eq("email", email).execute()
+    if not user_result.data:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user_id = user_result.data[0]["id"]
+
+    result = supabase.table("cart").select("*").eq("user_id", user_id).execute()
+    return result.data
+
+
+@app.post("/cart")
+async def add_to_cart(data: CartItemIn, token: str = Depends(oauth2_scheme)):
+    email = decode_access_token(token)
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_result = supabase.table("users").select("id").eq("email", email).execute()
+    if not user_result.data:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user_id = user_result.data[0]["id"]
+
+    # check if same product + size already in cart
+    existing = supabase.table("cart")\
+        .select("*")\
+        .eq("user_id", user_id)\
+        .eq("product_id", data.product_id)\
+        .eq("size", data.size)\
+        .execute()
+
+    if existing.data:
+        # update quantity
+        current_qty = existing.data[0]["quantity"]
+        cart_id = existing.data[0]["id"]
+        result = supabase.table("cart")\
+            .update({"quantity": current_qty + data.quantity})\
+            .eq("id", cart_id)\
+            .execute()
+        return result.data[0]
+    else:
+        # insert new row
+        result = supabase.table("cart").insert({
+            "user_id": user_id,
+            "product_id": data.product_id,
+            "size": data.size,
+            "quantity": data.quantity
+        }).execute()
+        return result.data[0]
+
+
+@app.patch("/cart/{cart_id}")
+async def update_cart(cart_id: str, data: dict, token: str = Depends(oauth2_scheme)):
+    email = decode_access_token(token)
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    result = supabase.table("cart")\
+        .update({"quantity": data["quantity"]})\
+        .eq("id", cart_id)\
+        .execute()
+    return result.data[0]
+
+
+@app.delete("/cart/{cart_id}")
+async def delete_cart_item(cart_id: str, token: str = Depends(oauth2_scheme)):
+    email = decode_access_token(token)
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    supabase.table("cart").delete().eq("id", cart_id).execute()
+    return {"message": "Item removed from cart"}
