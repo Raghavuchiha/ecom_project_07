@@ -1,17 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import API_URL from "../config";
-import { useContext } from "react";
 import { ShopContext } from "../context/ShopContext";
-
+import API_URL from "../config";
+import { toast } from "react-toastify";
 
 const Login = () => {
   const navigate = useNavigate();
   const { setToken } = useContext(ShopContext);
 
   const [currentState, setCurrentState] = useState("Login");
-
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,38 +17,34 @@ const Login = () => {
   const handleSubmit = async () => {
     try {
       if (currentState === "Sign Up") {
-        const response = await axios.post(
-          `${API_URL}/signup`,
-          {
-            username: name,
-            email: email,
-            password: password,
-          }
-        );
+        await axios.post(`${API_URL}/signup`, {
+          username: name,
+          email: email,
+          password: password,
+        });
 
-        console.log("Signup Success:", response.data);
-        navigate("/login");
+        toast.success("Account created! Please login.");
+        setCurrentState("Login");   // ← switch to login tab, same page
+        setName("");
+        setEmail("");
+        setPassword("");
+
       } else {
         const formData = new FormData();
         formData.append("username", email);
         formData.append("password", password);
 
-        const response = await axios.post(
-          `${API_URL}/login`,
-          formData
-        );
-
-        console.log("Login Success:", response.data);
+        const response = await axios.post(`${API_URL}/login`, formData);
 
         localStorage.setItem("access_token", response.data.access_token);
         localStorage.setItem("refresh_token", response.data.refresh_token);
-        setToken(response.data.access_token);
+        setToken(response.data.access_token);  // ← tells ShopContext user is logged in
 
+        toast.success("Welcome back!");
         navigate("/");
       }
     } catch (error) {
-      console.error(error);
-      alert(error.response?.data?.detail || "Something went wrong");
+      toast.error(error.response?.data?.detail || "Something went wrong");
     }
   };
 
@@ -61,10 +55,7 @@ const Login = () => {
           {currentState === "Login" ? "Login —" : "Sign Up —"}
         </h2>
 
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={(e) => e.preventDefault()}
-        >
+        <form className="flex flex-col gap-4" onSubmit={(e) => e.preventDefault()}>
           {currentState === "Sign Up" && (
             <input
               type="text"
@@ -95,32 +86,16 @@ const Login = () => {
           />
 
           <div className="flex justify-between text-sm text-gray-600">
-            <p className="cursor-pointer hover:underline">
-              Forgot your password?
-            </p>
+            <p className="cursor-pointer hover:underline">Forgot your password?</p>
 
             {currentState === "Login" ? (
-              <p
-                onClick={() => {
-                  setCurrentState("Sign Up");
-                  setName("");
-                  setEmail("");
-                  setPassword("");
-                }}
-                className="cursor-pointer hover:underline"
-              >
+              <p onClick={() => { setCurrentState("Sign Up"); setName(""); setEmail(""); setPassword(""); }}
+                className="cursor-pointer hover:underline">
                 Create account
               </p>
             ) : (
-              <p
-                onClick={() => {
-                  setCurrentState("Login");
-                  setName("");
-                  setEmail("");
-                  setPassword("");
-                }}
-                className="cursor-pointer hover:underline"
-              >
+              <p onClick={() => { setCurrentState("Login"); setName(""); setEmail(""); setPassword(""); }}
+                className="cursor-pointer hover:underline">
                 Login Here
               </p>
             )}
