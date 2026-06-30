@@ -7,7 +7,7 @@ const Footer = () => {
       
       {/* Logo and Description */}
       <div>
-        <img src={assets.logo} className="mb-5 w-32" alt="Company Logo" />
+      
         <p className="w-full md:w-2/3 text-gray-600">
       
       </div>
